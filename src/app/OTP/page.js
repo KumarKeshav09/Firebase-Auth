@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { auth } from '../../../utils/firebase'; // Ensure correct import
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { auth } from '../../../utils/firebase'; // Adjust the path as necessary
 
 export default function OtpLogin() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -24,11 +23,17 @@ export default function OtpLogin() {
   useEffect(() => {
     const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
       size: 'invisible',
+      callback: (response) => {
+        console.log('reCAPTCHA solved:', response);
+      },
+      'expired-callback': () => {
+        console.warn('reCAPTCHA expired');
+      }
     });
     setRecaptchaVerifier(verifier);
     return () => verifier.clear();
   }, []);
-
+  console.log('recaptchaVerifier:', recaptchaVerifier);
   useEffect(() => {
     if (otp.length === 6) {
       verifyOtp();
@@ -47,6 +52,7 @@ export default function OtpLogin() {
 
     try {
       await confirmationResult.confirm(otp);
+      setSuccess('Phone number verified successfully!');
     } catch (err) {
       console.error(err);
       setError('Failed to verify OTP. Please check the OTP.');
@@ -55,56 +61,59 @@ export default function OtpLogin() {
     }
   };
 
-  const requestOtp = async (e) => {
-    e.preventDefault();
-
-    if (isPending || resendCountdown > 0) {
-        return; // Prevent sending OTP if already in process or if countdown is active
-    }
-
-    setResendCountdown(60);
-    setIsPending(true);
-    setError('');
-
-    if (!recaptchaVerifier) {
-        setError('RecaptchaVerifier is not initialized.');
-        setIsPending(false);
-        return;
-    }
-
-    // Validate phone number format if needed
-    if (!/^\+\d{1,3}\d{1,14}$/.test(phoneNumber)) {
-        setError('Invalid phone number format. Please use the international format.');
-        setIsPending(false);
-        return;
-    }
-
-    try {
-        const result = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-        setConfirmationResult(result);
-        setSuccess('OTP sent successfully.');
-    } catch (err) {
-        console.error(err);
-        setResendCountdown(0);
-        setError(handleFirebaseError(err));
-    } finally {
-        setIsPending(false);
-    }
-};
-
-
   const handleFirebaseError = (err) => {
     switch (err.code) {
       case 'auth/invalid-phone-number':
         return 'Invalid phone number. Please check the number.';
       case 'auth/too-many-requests':
-        return 'Too many requests. Please try again later.';
+        return 'You have made too many attempts. Please try again later.';
       case 'auth/operation-not-allowed':
         return 'Operation not allowed. Please enable phone authentication in Firebase console.';
+      case 'auth/captcha-check-failed':
+        return 'Failed to verify reCAPTCHA. Please try again.';
       default:
         return 'Failed to send OTP. Please try again.';
     }
   };
+  
+  // Usage in the requestOtp function
+  const requestOtp = async (e) => {
+    e.preventDefault();
+  
+    if (isPending || resendCountdown > 0) {
+      return; // Prevent sending OTP if already in process or countdown is active
+    }
+  
+    setResendCountdown(60); // Set a countdown of 60 seconds
+    setIsPending(true);
+    setError('');
+  
+    if (!recaptchaVerifier) {
+      setError('RecaptchaVerifier is not initialized.');
+      setIsPending(false);
+      return;
+    }
+  
+    if (!/^\+\d{1,3}\d{1,14}$/.test(phoneNumber)) {
+      setError('Invalid phone number format. Please use the international format.');
+      setIsPending(false);
+      return;
+    }
+  
+    try {
+      const result = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+      setConfirmationResult(result);
+      console.log("result",result)
+      setSuccess('OTP sent successfully.');
+    } catch (err) {
+      console.error(err);
+      setResendCountdown(0); // Reset countdown if error occurs
+      setError(handleFirebaseError(err));
+    } finally {
+      setIsPending(false);
+    }
+  };
+  
 
   const loadingIndicator = (
     <div role="status" className="flex justify-center">
@@ -172,7 +181,6 @@ export default function OtpLogin() {
         {error && <p className="text-red-500">{error}</p>}
         {success && <p className="text-green-500">{success}</p>}
       </div>
-
       <div id="recaptcha-container" />
 
       {isPending && loadingIndicator}

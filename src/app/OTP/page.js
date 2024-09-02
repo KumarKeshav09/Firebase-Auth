@@ -1,3 +1,4 @@
+"use client"
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { auth } from '../../../utils/firebase'; // Make sure this is correctly pointing to your Firebase config
@@ -8,7 +9,6 @@ import {
 } from 'firebase/auth';
 
 export default function OtpLogin() {
-  const router = useRouter();
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
@@ -52,7 +52,6 @@ export default function OtpLogin() {
 
     try {
       await confirmationResult.confirm(otp);
-      router.replace('/');
     } catch (err) {
       console.error(err);
       setError('Failed to verify OTP. Please check the OTP.');

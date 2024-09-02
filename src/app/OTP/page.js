@@ -1,15 +1,10 @@
-"use client"
+"use client";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { auth } from '../../../utils/firebase'; // Make sure this is correctly pointing to your Firebase config
-import {
-  ConfirmationResult,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-} from 'firebase/auth';
+import { auth } from '../../../utils/firebase'; // Ensure correct import
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 
 export default function OtpLogin() {
-
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState(null);
@@ -63,28 +58,40 @@ export default function OtpLogin() {
   const requestOtp = async (e) => {
     e.preventDefault();
 
+    if (isPending || resendCountdown > 0) {
+        return; // Prevent sending OTP if already in process or if countdown is active
+    }
+
     setResendCountdown(60);
     setIsPending(true);
     setError('');
 
     if (!recaptchaVerifier) {
-      setError('RecaptchaVerifier is not initialized.');
-      setIsPending(false);
-      return;
+        setError('RecaptchaVerifier is not initialized.');
+        setIsPending(false);
+        return;
+    }
+
+    // Validate phone number format if needed
+    if (!/^\+\d{1,3}\d{1,14}$/.test(phoneNumber)) {
+        setError('Invalid phone number format. Please use the international format.');
+        setIsPending(false);
+        return;
     }
 
     try {
-      const result = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      setConfirmationResult(result);
-      setSuccess('OTP sent successfully.');
+        const result = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+        setConfirmationResult(result);
+        setSuccess('OTP sent successfully.');
     } catch (err) {
-      console.error(err);
-      setResendCountdown(0);
-      setError(handleFirebaseError(err));
+        console.error(err);
+        setResendCountdown(0);
+        setError(handleFirebaseError(err));
     } finally {
-      setIsPending(false);
+        setIsPending(false);
     }
-  };
+};
+
 
   const handleFirebaseError = (err) => {
     switch (err.code) {
@@ -92,6 +99,8 @@ export default function OtpLogin() {
         return 'Invalid phone number. Please check the number.';
       case 'auth/too-many-requests':
         return 'Too many requests. Please try again later.';
+      case 'auth/operation-not-allowed':
+        return 'Operation not allowed. Please enable phone authentication in Firebase console.';
       default:
         return 'Failed to send OTP. Please try again.';
     }

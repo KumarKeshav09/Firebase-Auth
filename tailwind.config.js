@@ -14,5 +14,31 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    addVariablesForColors,
+  ],
 };
+
+// Assume `flattenColorPalette` is a function available in your context
+function flattenColorPalette(colors) {
+  // Implementation to flatten color palettes (nested color objects)
+  // For example purposes, let's assume it simply returns colors as-is.
+  return colors;
+}
+
+function addVariablesForColors({ addBase, theme }) {
+  // Flatten the color palette
+  const allColors = flattenColorPalette(theme('colors'));
+
+  // Create CSS custom properties from the flattened colors
+  const newVars = Object.fromEntries(
+    Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
+  );
+
+  // Add base styles to the root
+  addBase({
+    ':root': newVars,
+  });
+}
+
+
